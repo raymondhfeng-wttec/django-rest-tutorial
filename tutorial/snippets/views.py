@@ -24,12 +24,17 @@ from snippets.serializers import UserSerializer
 from rest_framework import permissions
 
 from snippets.permissions import IsOwnerOrReadOnly
+from snippets.models import Snippet
 
 from rest_framework import renderers
 from rest_framework import viewsets
 from rest_framework.decorators import action
 
 from rest_framework.reverse import reverse
+
+from django_filters.rest_framework import DjangoFilterBackend
+
+from snippets.filters import SnippetFilter
 
 class SnippetViewSet(viewsets.ModelViewSet):
     """
@@ -42,6 +47,8 @@ class SnippetViewSet(viewsets.ModelViewSet):
     serializer_class = SnippetSerializer
     permission_classes = [permissions.IsAuthenticatedOrReadOnly,
                           IsOwnerOrReadOnly]
+    filter_backends = [DjangoFilterBackend]
+    filterset_class = SnippetFilter
 
     @action(detail=True, renderer_classes=[renderers.StaticHTMLRenderer])
     def highlight(self, request, *args, **kwargs):
@@ -50,6 +57,13 @@ class SnippetViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         serializer.save(owner=self.request.user)
+
+    def get_queryset(self):
+        owner = self.request.query_params.get("owner", None)
+        if owner is None:
+            return super().get_queryset()
+        else:
+            return Snippet.objects.filter(owner__username=owner)
 
 class UserViewSet(viewsets.ReadOnlyModelViewSet):
     """
